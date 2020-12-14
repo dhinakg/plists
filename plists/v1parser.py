@@ -28,10 +28,11 @@ class Parser(object):
 
         obj = Parser().parse(<string_or_stream>)
     """
-    def parseFile(self, path):
-        return self.parse(open(path))
+    def parseFile(self, path, untokenize=False):
+        with open(path, 'rb') as f:
+            return self.parse(f, untokenize=untokenize)
 
-    def parse(self, string_or_stream):
+    def parse(self, string_or_stream, untokenize=False):
         """
         Parses the input stream and returns a dictionary or list at the root of the stream.
 
@@ -77,7 +78,7 @@ class Parser(object):
         self.scanner = Scanner(string_or_stream)
         self.lookahead = None
         self.tokenizer = self.scanner.tokenize()
-        return self.parse_value()
+        return self.parse_value(untokenize=untokenize)
 
     def next_token(self, peek=False):
         out = self.lookahead
@@ -91,18 +92,20 @@ class Parser(object):
         # if not peek: print out
         return out
 
-    def parse_value(self):
+    def parse_value(self, untokenize=False):
         token = self.next_token()
         if token.toktype in (TOKEN_NUMBER, TOKEN_STRING, TOKEN_IDENTIFIER):
+            if untokenize:
+                return token.value
             return token
         elif token.toktype == TOKEN_OPEN_LIST:
-            return self.parse_list()
+            return self.parse_list(untokenize=untokenize)
         elif token.toktype == TOKEN_OPEN_DICT:
-            return self.parse_dict()
+            return self.parse_dict(untokenize=untokenize)
         else:
             self.parse_exception("Invalid token found: %s", token)
 
-    def parse_list(self):
+    def parse_list(self, untokenize=False):
         out = []
         token = self.next_token(peek=True)
         while token.toktype != TOKEN_END:
@@ -111,7 +114,7 @@ class Parser(object):
                     self.next_token()
                 break
 
-            out.append(self.parse_value())
+            out.append(self.parse_value(untokenize=untokenize))
 
             token = self.next_token()
             if token.toktype not in (TOKEN_CLOSE_LIST, TOKEN_COMA, TOKEN_SEMICOLON):
@@ -120,7 +123,7 @@ class Parser(object):
                 token = self.next_token(peek=True)
         return out
 
-    def parse_dict(self):
+    def parse_dict(self, untokenize=False):
         out = PlistDict()
         token = self.next_token()
         while token.toktype != TOKEN_END:
@@ -129,12 +132,12 @@ class Parser(object):
             elif token.toktype not in (TOKEN_NUMBER, TOKEN_STRING, TOKEN_IDENTIFIER):
                 self.parse_exception("Expected string or identifier, Found: %s", token)
             else:
-                key = token
+                key = token.value
                 token = self.next_token()
                 if token.toktype != TOKEN_EQUALS:
                     self.parse_exception("Expected '=', Found: %s", token)
 
-                out[key] = self.parse_value()
+                out[key] = self.parse_value(untokenize=untokenize)
 
                 token = self.next_token()
                 if token.toktype not in (TOKEN_CLOSE_DICT, TOKEN_COMA, TOKEN_SEMICOLON):
@@ -361,4 +364,3 @@ class PlistDict(dict):
 
     def strkeys(self):
         return [k.value for k in self.keys()]
-
