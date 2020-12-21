@@ -1,5 +1,5 @@
 
-import cStringIO
+import io
 
 TOKEN_NUMBER = "TOKEN_NUMBER"
 TOKEN_IDENTIFIER = "TOKEN_IDENTIFIER"
@@ -86,7 +86,7 @@ class Parser(object):
             if not peek:
                 self.lookahead = None
         else:
-            out = self.tokenizer.next()
+            out = next(self.tokenizer)
             if peek:
                 self.lookahead = out
         # if not peek: print out
@@ -170,10 +170,10 @@ class Scanner(object):
     """
     def __init__(self, string_or_stream):
         self.instream = string_or_stream
-        if type(self.instream) in (str, unicode):
-            self.instream = cStringIO.StringIO()
+        if isinstance(self.instream, str):
+            self.instream = io.StringIO()
             self.instream.write(string_or_stream)
-            self.instream.reset()
+            self.instream.seek(0)
         self.line = 0
         self.column = 0
         self.incomment = False
@@ -281,7 +281,7 @@ class Scanner(object):
                             parse_failed = True
                         else:
                             self.currtoken += startchar
-                            yield Token(TOKEN_STRING, eval(self.currtoken))
+                            yield Token(TOKEN_STRING, self.currtoken[1:-1])
                     elif currchar.isspace():
                         # do nothing
                         pass
